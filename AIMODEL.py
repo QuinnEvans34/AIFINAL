@@ -104,3 +104,6 @@ for ticker, result in results.items():
     print(f"Sample actual data: {result['actual'][:5]}")
     print(f"Sample predicted data: {result['predicted'].flatten()[:5]}")
     print(f"Sample dates: {result['dates'][:5]}")
+
+
+# testestestestestestsetes pen15
