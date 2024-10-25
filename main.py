@@ -35,9 +35,3 @@ from sklearn.metrics import mean_squared_error
 
 # Make predictions on the test set
 y_pred = rf_model.predict(X_test)
-
-# Optionally, print a few predictions vs actual values
-print("Sample Predictions vs Actual Prices:")
-for actual, predicted in zip(y_test[:5], y_pred[:5]):
-    print(f"Actual: {actual}, Predicted: {predicted}")
-
