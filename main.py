@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
-from tensorflow.keras.models import Sequential 
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Bidirectional
+from tensorflow.keras.models import Sequential  # type: ignore
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Bidirectional  # type: ignore
 from sklearn.metrics import mean_squared_error
 from datetime import timedelta
 
@@ -72,15 +72,13 @@ next_week_price_stock = scalerClose.inverse_transform(next_week_scaled_stock)[0,
 
 # Get the current price and calculate percent change
 current_price_stock = float(combinedData['Close'].values[-1])
-percent_change_stock = ((next_week_price_stock - current_price_stock) / current_price_stock) * 100
+percent_change_stock = (((next_week_price_stock - current_price_stock) / current_price_stock) * 100)
 
 # Calculate the date for the next week's prediction
 next_week_date = combinedData.index[-1] + timedelta(days=7)  # Date one week from the last date in the dataset
 
 # Display the current price and next predicted price with the specific prediction date
-print("\n============================================")
 print(f"Current Price for {userTicker} on {combinedData.index[-1].date()}: ${current_price_stock:.2f}")
 print(f"Next Predicted Price for {userTicker} on {next_week_date.date()}: ${next_week_price_stock:.2f}")
 print(f"Predicted Percent Change for {userTicker}: {percent_change_stock:.2f}%")
-print("============================================")
 
