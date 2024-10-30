@@ -1,97 +1,86 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential 
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Bidirectional
 from sklearn.metrics import mean_squared_error
 from datetime import timedelta
 
-# Loads the stock the user is looking up
+# Load the stock data
 userTicker = 'AMZN'
 print(f"Downloading stock data for {userTicker}...")
-data = yf.download(userTicker, start='2014-01-01', end='2024-01-01')
+data = yf.download(userTicker, start='2010-01-01', end='2024-01-01')
 
-# loads SP 500 to compare for market
-sp500 = '^GSPC'
-sp500data = yf.download(sp500, start='2014-01-01', end='2024-01-01')
+# Keep only the essential columns and calculate percent change
+data['Volume Change'] = data['Volume'].pct_change()
+combinedData = data[['Close', 'Volume Change']].dropna()
 
-# use pct_change to look at amount change between quarters / quarters 90 days
-data['Quarterly Change'] = data['Close'].pct_change(90)  
-sp500data['Quarterly Change'] = sp500data['Close'].pct_change(90)
+# Scale each feature using StandardScaler
+scalerClose = StandardScaler()
+scalerVolume = StandardScaler()
 
-# concat data so it aligns
-combinedData = pd.concat([data[['Close', 'Quarterly Change']], sp500data['Quarterly Change']], axis=1)
-combinedData.columns = ['Close_AAPL', 'Quarterly Change_AAPL', 'Quarterly Change_SP500']
-combinedData = combinedData.dropna()  # Drop rows with NaN values due to pct_change calculation
+closeScaledData = scalerClose.fit_transform(combinedData[['Close']])
+volumeScaledData = scalerVolume.fit_transform(combinedData[['Volume Change']])
 
-# Use MinMaxScaler for scaling
-scalerStock = MinMaxScaler(feature_range=(0, 1))
-scaler500 = MinMaxScaler(feature_range=(0, 1))
-
-# Scale the stock and S&P 500 quarterly changes
-stockScaledData = scalerStock.fit_transform(combinedData[['Close_AAPL']])
-sp500ScaledData = scaler500.fit_transform(combinedData[['Quarterly Change_SP500']])
-
-# Define features (X) and labels (y)
-
-time_steps = 40  # this will change with the user input
+# Prepare X and y, with weekly time steps
+steps = 7  # Predict one week ahead
 X, y = [], []
 
-# Prepares the data for LSTM
-for i in range(time_steps, len(stockScaledData)):
-    X.append(np.column_stack((stockScaledData[i-time_steps:i, 0], sp500ScaledData[i-time_steps:i, 0])))  # Combine stock and S&P 500
-    y.append(stockScaledData[i, 0])  # Target is the next quarter's stock price
+for i in range(steps, len(closeScaledData)):
+    X.append(np.column_stack((closeScaledData[i-steps:i, 0], volumeScaledData[i-steps:i, 0])))
+    y.append(closeScaledData[i, 0])  # Target is the next week's stock price
 
-# Convert X and y to numpy arrays and reshape X for LSTM samples, time_steps, features
 X, y = np.array(X), np.array(y)
 
-# split the data for training and testing
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Use TimeSeriesSplit for cross-validation
+tscv = TimeSeriesSplit(n_splits=5)
+validationScores = []
 
-# Build the LSTM model with two features
-model = Sequential([
-    LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
-    Dropout(0.2),
-    LSTM(units=50),
-    Dropout(0.2),
-    Dense(units=1)  # Output layer for users predicted price
-])
+for train_index, test_index in tscv.split(X):
+    X_train, X_test = X[train_index], X[test_index]
+    y_train, y_test = y[train_index], y[test_index]
 
-# Compile and train the model
-model.compile(optimizer='adam', loss='mean_squared_error')
-model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.1)
+    model = Sequential([
+        Input(shape=(X_train.shape[1], X_train.shape[2])),
+        LSTM(units=50, return_sequences=True),
+        Dropout(0.20),
+        LSTM(units=50),
+        Dropout(0.20),
+        Dense(units=1)
+    ])
+    
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.1, verbose=1)  # Reduced epochs to speed up cross-validation
 
-# Predict on test set and rescale predictions back to original values
-y_pred = model.predict(X_test)
-y_pred_rescaled = scalerStock.inverse_transform(y_pred)  # Rescale predictions to original stock prices
-y_test_rescaled = scalerStock.inverse_transform(y_test.reshape(-1, 1))  # Rescale actual prices
+    # Validate and calculate MSE for each fold
+    y_pred = model.predict(X_test)
+    y_pred_rescaled = scalerClose.inverse_transform(y_pred)
+    y_test_rescaled = scalerClose.inverse_transform(y_test.reshape(-1, 1))
+    mse = mean_squared_error(y_test_rescaled, y_pred_rescaled)
+    validationScores.append(mse)
 
-# Predict the next quarter's closing price for the stock based on the last available data
-last_sequence_stock = stockScaledData[-time_steps:]  # Last time_steps quarters of the stock
-last_sequence_sp500 = sp500ScaledData[-time_steps:]  # Last time_steps quarters of S&P 500
-last_sequence_combined = np.column_stack((last_sequence_stock, last_sequence_sp500))
-last_sequence_combined = last_sequence_combined.reshape(1, time_steps, 2)  # Reshape for LSTM
+print("Average MSE across folds:", np.mean(validationScores))
 
-next_quarter_scaled_stock = model.predict(last_sequence_combined)
-next_quarter_price_stock = scalerStock.inverse_transform(next_quarter_scaled_stock)[0, 0]  # Rescale to original price
+# Predict the next week's closing price for the stock based on the last available data
+last_sequence_combined = np.column_stack((closeScaledData[-steps:], volumeScaledData[-steps:]))
+last_sequence_combined = last_sequence_combined.reshape(1, steps, 2)  # Reshape for LSTM
 
-# Get the current prices and calculate percent change for stock
-current_price_stock = combinedData['Close_AAPL'].values[-1].item()
-percent_change_stock = ((next_quarter_price_stock - current_price_stock) / current_price_stock) * 100
+next_week_scaled_stock = model.predict(last_sequence_combined)
+next_week_price_stock = scalerClose.inverse_transform(next_week_scaled_stock)[0, 0]  # Rescale to original price
 
-# Calculate the date for the next quarter
-last_date = combinedData.index[-1]  # Last date in the dataset
-next_quarter_date = last_date + timedelta(days=90)  # Approximate date for the next quarter
+# Get the current price and calculate percent change
+current_price_stock = float(combinedData['Close'].values[-1])
+percent_change_stock = ((next_week_price_stock - current_price_stock) / current_price_stock) * 100
 
-# Display the current price, next predicted price, percent change, and comparison to S&P 500
+# Calculate the date for the next week's prediction
+next_week_date = combinedData.index[-1] + timedelta(days=7)  # Date one week from the last date in the dataset
+
+# Display the current price and next predicted price with the specific prediction date
 print("\n============================================")
-print(f"Current Price for {userTicker} on {last_date.date()}: ${current_price_stock:.2f}")
-print(f"Next Predicted Price for {userTicker} on {next_quarter_date.date()}: ${next_quarter_price_stock:.2f}")
-print(f"Predicted Percent Change for {userTicker}: {percent_change_stock:.2f}%\n")
-
-# Comparison to current S&P 500 performance
-current_sp500_change = combinedData['Quarterly Change_SP500'].values[-1] * 100  # Convert to percentage
-print(f"S&P 500 Quarterly Change as of {last_date.date()}: {current_sp500_change:.2f}%")
+print(f"Current Price for {userTicker} on {combinedData.index[-1].date()}: ${current_price_stock:.2f}")
+print(f"Next Predicted Price for {userTicker} on {next_week_date.date()}: ${next_week_price_stock:.2f}")
+print(f"Predicted Percent Change for {userTicker}: {percent_change_stock:.2f}%")
 print("============================================")
+
