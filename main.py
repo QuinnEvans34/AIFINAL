@@ -1,6 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential  # type: ignore
@@ -77,8 +78,20 @@ percent_change_stock = (((next_week_price_stock - current_price_stock) / current
 # Calculate the date for the next week's prediction
 next_week_date = combinedData.index[-1] + timedelta(days=7)  # Date one week from the last date in the dataset
 
+# Plot the actual price and predicted price
+plt.figure(figsize=(10, 6))
+plt.plot(combinedData.index[-7:], combinedData['Close'].values[-7:], marker='o', label='Actual Price')  # Plot last week's actual price
+plt.axhline(y=next_week_price_stock, color='r', linestyle='--', label='Predicted Price')  # Plot predicted price line
+plt.xlabel('Date')
+plt.ylabel('Price')
+plt.title(f"Actual vs. Predicted Price for {userTicker}")
+plt.legend()
+plt.grid(True)
+plt.xticks(rotation=45)  # Rotate x-axis labels for better readability
+plt.tight_layout()
+
 # Display the current price and next predicted price with the specific prediction date
 print(f"Current Price for {userTicker} on {combinedData.index[-1].date()}: ${current_price_stock:.2f}")
 print(f"Next Predicted Price for {userTicker} on {next_week_date.date()}: ${next_week_price_stock:.2f}")
 print(f"Predicted Percent Change for {userTicker}: {percent_change_stock:.2f}%")
-
+plt.show()
