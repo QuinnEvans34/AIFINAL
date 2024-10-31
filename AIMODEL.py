@@ -107,3 +107,16 @@ for ticker, result in results.items():
 
 
 # testestestestestestsetes PEN15
+
+
+# # Plot the actual price and predicted price
+# plt.figure(figsize=(10, 6))
+# plt.plot(combinedData.index[-7:], combinedData['Close'].values[-7:], marker='o', label='Actual Price')  # Plot last week's actual price
+# plt.axhline(y=next_week_price_stock, color='r', marker='o', label='Predicted Price')  # Plot predicted price line
+# plt.xlabel('Date')
+# plt.ylabel('Price')
+# plt.title(f"Actual vs. Predicted Price for {userTicker}")
+# plt.legend()
+# plt.grid(True)
+# plt.xticks(rotation=45)  # Rotate x-axis labels for better readability
+# plt.tight_layout()

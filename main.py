@@ -79,16 +79,22 @@ percent_change_stock = (((next_week_price_stock - current_price_stock) / current
 next_week_date = combinedData.index[-1] + timedelta(days=7)  # Date one week from the last date in the dataset
 
 # Plot the actual price and predicted price
-plt.figure(figsize=(10, 6))
-plt.plot(combinedData.index[-7:], combinedData['Close'].values[-7:], marker='o', label='Actual Price')  # Plot last week's actual price
-plt.axhline(y=next_week_price_stock, color='r', linestyle='--', label='Predicted Price')  # Plot predicted price line
-plt.xlabel('Date')
-plt.ylabel('Price')
-plt.title(f"Actual vs. Predicted Price for {userTicker}")
+# Scatter plot for actual vs predicted prices
+plt.figure(figsize=(12, 6))
+
+# Plot actual prices as blue scatter points
+plt.scatter(range(len(y_test)), y_test, color='blue', label='Actual Prices', s=50, alpha=0.6)
+
+# Plot predicted prices as red scatter points
+plt.scatter(range(len(y_pred)), y_pred, color='red', label='Predicted Prices', s=50, alpha=0.6)
+
+# Add title and labels
+plt.title(f'{userTicker} Stock Price Prediction: Actual vs Predicted', fontsize=16)
+plt.xlabel('Test Data Points', fontsize=12)
+plt.ylabel('Price (USD)', fontsize=12)
 plt.legend()
 plt.grid(True)
-plt.xticks(rotation=45)  # Rotate x-axis labels for better readability
-plt.tight_layout()
+plt.show()
 
 # Display the current price and next predicted price with the specific prediction date
 print(f"Current Price for {userTicker} on {combinedData.index[-1].date()}: ${current_price_stock:.2f}")
