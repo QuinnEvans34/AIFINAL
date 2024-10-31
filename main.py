@@ -1,3 +1,4 @@
+#this is the code that actually ran the neural network
 import yfinance as yf
 import pandas as pd
 import numpy as np

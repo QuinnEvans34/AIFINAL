@@ -1,3 +1,4 @@
+#we made this for some of the graphing and to have a separate file for testing stuff
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -104,9 +105,6 @@ for ticker, result in results.items():
     print(f"Sample actual data: {result['actual'][:5]}")
     print(f"Sample predicted data: {result['predicted'].flatten()[:5]}")
     print(f"Sample dates: {result['dates'][:5]}")
-
-
-# testestestestestestsetes PEN15
 
 
 # # Plot the actual price and predicted price
